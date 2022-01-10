@@ -33,15 +33,17 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
+__FBSDID("$FreeBSD: head/sys/netinet/sctp_crc32.h 362338 2020-06-18 19:32:34Z markj $");
 
 #ifndef _NETINET_SCTP_CRC32_H_
 #define _NETINET_SCTP_CRC32_H_
 
 #if defined(_KERNEL)
 uint32_t sctp_calculate_cksum(struct mbuf *, uint32_t);
+
 #if defined(SCTP) || defined(SCTP_SUPPORT)
 void sctp_delayed_cksum(struct mbuf *, uint32_t offset);
+
 #endif
 #endif				/* _KERNEL */
 #endif				/* __crc32c_h__ */

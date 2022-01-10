@@ -33,7 +33,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
+__FBSDID("$FreeBSD: head/sys/netinet/sctp_asconf.h 365071 2020-09-01 21:19:14Z mjg $");
 
 #ifndef _NETINET_SCTP_ASCONF_H_
 #define _NETINET_SCTP_ASCONF_H_
@@ -59,10 +59,10 @@ extern uint32_t
 sctp_addr_mgmt_ep_sa(struct sctp_inpcb *, struct sockaddr *, uint32_t,
     uint32_t);
 
-extern int
+extern int 
 sctp_asconf_iterator_ep(struct sctp_inpcb *inp, void *ptr,
     uint32_t val);
-extern void
+extern void 
 sctp_asconf_iterator_stcb(struct sctp_inpcb *inp,
     struct sctp_tcb *stcb,
     void *ptr, uint32_t type);
@@ -87,6 +87,7 @@ sctp_asconf_send_nat_state_update(struct sctp_tcb *stcb,
 
 extern int
     sctp_is_addr_pending(struct sctp_tcb *, struct sctp_ifa *);
+
 #endif				/* _KERNEL */
 
 #endif				/* !_NETINET_SCTP_ASCONF_H_ */

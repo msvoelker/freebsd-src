@@ -33,7 +33,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
+__FBSDID("$FreeBSD: head/sys/netinet/sctp_sysctl.c 365071 2020-09-01 21:19:14Z mjg $");
 
 #include <netinet/sctp_os.h>
 #include <netinet/sctp.h>
@@ -65,6 +65,14 @@ sctp_init_sysctls()
 	SCTP_BASE_SYSCTL(sctp_reconfig_enable) = SCTPCTL_RECONFIG_ENABLE_DEFAULT;
 	SCTP_BASE_SYSCTL(sctp_nrsack_enable) = SCTPCTL_NRSACK_ENABLE_DEFAULT;
 	SCTP_BASE_SYSCTL(sctp_pktdrop_enable) = SCTPCTL_PKTDROP_ENABLE_DEFAULT;
+	SCTP_BASE_SYSCTL(sctp_plpmtud_enable) = SCTPCTL_PLPMTUD_ENABLE_DEFAULT;
+	SCTP_BASE_SYSCTL(sctp_plpmtud_ipv4_min_mtu) = SCTPCTL_PLPMTUD_IPv4_MIN_MTU_DEFAULT;
+	SCTP_BASE_SYSCTL(sctp_plpmtud_ipv6_min_mtu) = SCTPCTL_PLPMTUD_IPv6_MIN_MTU_DEFAULT;
+	SCTP_BASE_SYSCTL(sctp_plpmtud_search_algorithm) = SCTPCTL_PLPMTUD_SEARCH_ALGORITHM_DEFAULT;
+	SCTP_BASE_SYSCTL(sctp_plpmtud_use_ptb) = SCTPCTL_PLPMTUD_USE_PTB_DEFAULT;
+	SCTP_BASE_SYSCTL(sctp_plpmtud_max_probes) = SCTPCTL_PLPMTUD_MAX_PROBES_DEFAULT;
+	SCTP_BASE_SYSCTL(sctp_plpmtud_min_probe_rtx_time) = SCTPCTL_PLPMTUD_MIN_PROBE_RTX_TIME_DEFAULT;
+	SCTP_BASE_SYSCTL(sctp_plpmtud_raise_time) = SCTPCTL_PLPMTUD_RAISE_TIME_DEFAULT;
 	SCTP_BASE_SYSCTL(sctp_peer_chunk_oh) = SCTPCTL_PEER_CHKOH_DEFAULT;
 	SCTP_BASE_SYSCTL(sctp_max_burst_default) = SCTPCTL_MAXBURST_DEFAULT;
 	SCTP_BASE_SYSCTL(sctp_fr_max_burst_default) = SCTPCTL_FRMAXBURST_DEFAULT;
@@ -78,7 +86,6 @@ sctp_init_sysctls()
 	SCTP_BASE_SYSCTL(sctp_system_free_resc_limit) = SCTPCTL_SYS_RESOURCE_DEFAULT;
 	SCTP_BASE_SYSCTL(sctp_asoc_free_resc_limit) = SCTPCTL_ASOC_RESOURCE_DEFAULT;
 	SCTP_BASE_SYSCTL(sctp_heartbeat_interval_default) = SCTPCTL_HEARTBEAT_INTERVAL_DEFAULT;
-	SCTP_BASE_SYSCTL(sctp_pmtu_raise_time_default) = SCTPCTL_PMTU_RAISE_TIME_DEFAULT;
 	SCTP_BASE_SYSCTL(sctp_shutdown_guard_time_default) = SCTPCTL_SHUTDOWN_GUARD_TIME_DEFAULT;
 	SCTP_BASE_SYSCTL(sctp_secret_lifetime_default) = SCTPCTL_SECRET_LIFETIME_DEFAULT;
 	SCTP_BASE_SYSCTL(sctp_rto_max_default) = SCTPCTL_RTO_MAX_DEFAULT;
@@ -652,10 +659,12 @@ static int
 sctp_sysctl_handle_stats(SYSCTL_HANDLER_ARGS)
 {
 	int error;
+
 #if defined(SMP) && defined(SCTP_USE_PERCPU_STAT)
 	struct sctpstat *sarry;
 	struct sctpstat sb;
 	int cpu;
+
 #endif
 	struct sctpstat sb_temp;
 
@@ -833,6 +842,7 @@ sctp_sysctl_handle_trace_log_clear(SYSCTL_HANDLER_ARGS)
 	memset(&SCTP_BASE_SYSCTL(sctp_log), 0, sizeof(struct sctp_log));
 	return (error);
 }
+
 #endif
 
 #define SCTP_UINT_SYSCTL(mib_name, var_name, prefix)			\
@@ -855,8 +865,8 @@ sctp_sysctl_handle_trace_log_clear(SYSCTL_HANDLER_ARGS)
 		return (error);						\
 	}								\
 	SYSCTL_PROC(_net_inet_sctp, OID_AUTO, mib_name,			\
-	    CTLFLAG_VNET | CTLTYPE_UINT | CTLFLAG_RW | CTLFLAG_NEEDGIANT, \
-	    NULL, 0, sctp_sysctl_handle_##mib_name, "UI", prefix##_DESC);
+	                 CTLFLAG_VNET|CTLTYPE_UINT|CTLFLAG_RW, NULL, 0,	\
+	                 sctp_sysctl_handle_##mib_name, "UI", prefix##_DESC);
 
 /*
  * sysctl definitions
@@ -867,17 +877,21 @@ SCTP_UINT_SYSCTL(recvspace, sctp_recvspace, SCTPCTL_RECVSPACE)
 SCTP_UINT_SYSCTL(auto_asconf, sctp_auto_asconf, SCTPCTL_AUTOASCONF)
 SCTP_UINT_SYSCTL(ecn_enable, sctp_ecn_enable, SCTPCTL_ECN_ENABLE)
 SCTP_UINT_SYSCTL(pr_enable, sctp_pr_enable, SCTPCTL_PR_ENABLE)
-SYSCTL_PROC(_net_inet_sctp, OID_AUTO, auth_enable,
-    CTLFLAG_VNET | CTLTYPE_UINT | CTLFLAG_RW | CTLFLAG_NEEDGIANT,
-    NULL, 0, sctp_sysctl_handle_auth, "IU",
-    SCTPCTL_AUTH_ENABLE_DESC);
-SYSCTL_PROC(_net_inet_sctp, OID_AUTO, asconf_enable,
-    CTLFLAG_VNET | CTLTYPE_UINT | CTLFLAG_RW | CTLFLAG_NEEDGIANT,
-    NULL, 0, sctp_sysctl_handle_asconf, "IU",
-    SCTPCTL_ASCONF_ENABLE_DESC);
+SYSCTL_PROC(_net_inet_sctp, OID_AUTO, auth_enable, CTLFLAG_VNET | CTLTYPE_UINT | CTLFLAG_RW,
+    NULL, 0, sctp_sysctl_handle_auth, "IU", SCTPCTL_AUTH_ENABLE_DESC);
+SYSCTL_PROC(_net_inet_sctp, OID_AUTO, asconf_enable, CTLFLAG_VNET | CTLTYPE_UINT | CTLFLAG_RW,
+    NULL, 0, sctp_sysctl_handle_asconf, "IU", SCTPCTL_ASCONF_ENABLE_DESC);
 SCTP_UINT_SYSCTL(reconfig_enable, sctp_reconfig_enable, SCTPCTL_RECONFIG_ENABLE)
 SCTP_UINT_SYSCTL(nrsack_enable, sctp_nrsack_enable, SCTPCTL_NRSACK_ENABLE)
 SCTP_UINT_SYSCTL(pktdrop_enable, sctp_pktdrop_enable, SCTPCTL_PKTDROP_ENABLE)
+SCTP_UINT_SYSCTL(plpmtud_enable, sctp_plpmtud_enable, SCTPCTL_PLPMTUD_ENABLE)
+SCTP_UINT_SYSCTL(plpmtud_ipv4_min_mtu, sctp_plpmtud_ipv4_min_mtu, SCTPCTL_PLPMTUD_IPv4_MIN_MTU)
+SCTP_UINT_SYSCTL(plpmtud_ipv6_min_mtu, sctp_plpmtud_ipv6_min_mtu, SCTPCTL_PLPMTUD_IPv6_MIN_MTU)
+SCTP_UINT_SYSCTL(plpmtud_search_algorithm, sctp_plpmtud_search_algorithm, SCTPCTL_PLPMTUD_SEARCH_ALGORITHM)
+SCTP_UINT_SYSCTL(plpmtud_use_ptb, sctp_plpmtud_use_ptb, SCTPCTL_PLPMTUD_USE_PTB)
+SCTP_UINT_SYSCTL(plpmtud_max_probes, sctp_plpmtud_max_probes, SCTPCTL_PLPMTUD_MAX_PROBES)
+SCTP_UINT_SYSCTL(plpmtud_min_probe_rtx_time, sctp_plpmtud_min_probe_rtx_time, SCTPCTL_PLPMTUD_MIN_PROBE_RTX_TIME)
+SCTP_UINT_SYSCTL(plpmtud_raise_time, sctp_plpmtud_raise_time, SCTPCTL_PLPMTUD_RAISE_TIME)
 SCTP_UINT_SYSCTL(peer_chkoh, sctp_peer_chunk_oh, SCTPCTL_PEER_CHKOH)
 SCTP_UINT_SYSCTL(maxburst, sctp_max_burst_default, SCTPCTL_MAXBURST)
 SCTP_UINT_SYSCTL(fr_maxburst, sctp_fr_max_burst_default, SCTPCTL_FRMAXBURST)
@@ -891,7 +905,6 @@ SCTP_UINT_SYSCTL(sack_freq, sctp_sack_freq_default, SCTPCTL_SACK_FREQ)
 SCTP_UINT_SYSCTL(sys_resource, sctp_system_free_resc_limit, SCTPCTL_SYS_RESOURCE)
 SCTP_UINT_SYSCTL(asoc_resource, sctp_asoc_free_resc_limit, SCTPCTL_ASOC_RESOURCE)
 SCTP_UINT_SYSCTL(heartbeat_interval, sctp_heartbeat_interval_default, SCTPCTL_HEARTBEAT_INTERVAL)
-SCTP_UINT_SYSCTL(pmtu_raise_time, sctp_pmtu_raise_time_default, SCTPCTL_PMTU_RAISE_TIME)
 SCTP_UINT_SYSCTL(shutdown_guard_time, sctp_shutdown_guard_time_default, SCTPCTL_SHUTDOWN_GUARD_TIME)
 SCTP_UINT_SYSCTL(secret_lifetime, sctp_secret_lifetime_default, SCTPCTL_SECRET_LIFETIME)
 SCTP_UINT_SYSCTL(rto_max, sctp_rto_max_default, SCTPCTL_RTO_MAX)
@@ -924,19 +937,13 @@ SCTP_UINT_SYSCTL(default_frag_interleave, sctp_default_frag_interleave, SCTPCTL_
 SCTP_UINT_SYSCTL(mobility_base, sctp_mobility_base, SCTPCTL_MOBILITY_BASE)
 SCTP_UINT_SYSCTL(mobility_fasthandoff, sctp_mobility_fasthandoff, SCTPCTL_MOBILITY_FASTHANDOFF)
 #if defined(SCTP_LOCAL_TRACE_BUF)
-SYSCTL_PROC(_net_inet_sctp, OID_AUTO, log,
-    CTLFLAG_VNET | CTLTYPE_STRUCT | CTLFLAG_RD | CTLFLAG_NEEDGIANT,
-    NULL, 0, sctp_sysctl_handle_trace_log, "S,sctplog"a
-    , "SCTP logging (struct sctp_log)");
-SYSCTL_PROC(_net_inet_sctp, OID_AUTO, clear_trace,
-    CTLFLAG_VNET | CTLTYPE_UINT | CTLFLAG_RW | CTLFLAG_NEEDGIANT,
-    NULL, 0, sctp_sysctl_handle_trace_log_clear, "IU",
-    "Clear SCTP Logging buffer");
+SYSCTL_PROC(_net_inet_sctp, OID_AUTO, log, CTLFLAG_VNET | CTLTYPE_STRUCT | CTLFLAG_RD,
+    NULL, 0, sctp_sysctl_handle_trace_log, "S,sctplog", "SCTP logging (struct sctp_log)");
+SYSCTL_PROC(_net_inet_sctp, OID_AUTO, clear_trace, CTLFLAG_VNET | CTLTYPE_UINT | CTLFLAG_RW,
+    NULL, 0, sctp_sysctl_handle_trace_log_clear, "IU", "Clear SCTP Logging buffer");
 #endif
-SYSCTL_PROC(_net_inet_sctp, OID_AUTO, udp_tunneling_port,
-    CTLFLAG_VNET | CTLTYPE_UINT | CTLFLAG_RW | CTLFLAG_NEEDGIANT,
-    NULL, 0, sctp_sysctl_handle_udp_tunneling, "IU",
-    SCTPCTL_UDP_TUNNELING_PORT_DESC);
+SYSCTL_PROC(_net_inet_sctp, OID_AUTO, udp_tunneling_port, CTLFLAG_VNET | CTLTYPE_UINT | CTLFLAG_RW,
+    NULL, 0, sctp_sysctl_handle_udp_tunneling, "IU", SCTPCTL_UDP_TUNNELING_PORT_DESC);
 SCTP_UINT_SYSCTL(enable_sack_immediately, sctp_enable_sack_immediately, SCTPCTL_SACK_IMMEDIATELY_ENABLE)
 SCTP_UINT_SYSCTL(nat_friendly_init, sctp_inits_include_nat_friendly, SCTPCTL_NAT_FRIENDLY_INITS)
 SCTP_UINT_SYSCTL(vtag_time_wait, sctp_vtag_time_wait, SCTPCTL_TIME_WAIT)
@@ -953,11 +960,7 @@ SCTP_UINT_SYSCTL(diag_info_code, sctp_diag_info_code, SCTPCTL_DIAG_INFO_CODE)
 #ifdef SCTP_DEBUG
 SCTP_UINT_SYSCTL(debug, sctp_debug_on, SCTPCTL_DEBUG)
 #endif
-SYSCTL_PROC(_net_inet_sctp, OID_AUTO, stats,
-    CTLFLAG_VNET | CTLTYPE_STRUCT | CTLFLAG_RW | CTLFLAG_NEEDGIANT,
-    NULL, 0, sctp_sysctl_handle_stats, "S,sctpstat",
-    "SCTP statistics (struct sctp_stat)");
-SYSCTL_PROC(_net_inet_sctp, OID_AUTO, assoclist,
-    CTLFLAG_VNET | CTLTYPE_OPAQUE | CTLFLAG_RD | CTLFLAG_NEEDGIANT,
-    NULL, 0, sctp_sysctl_handle_assoclist, "S,xassoc",
-    "List of active SCTP associations");
+SYSCTL_PROC(_net_inet_sctp, OID_AUTO, stats, CTLFLAG_VNET | CTLTYPE_STRUCT | CTLFLAG_RW,
+    NULL, 0, sctp_sysctl_handle_stats, "S,sctpstat", "SCTP statistics (struct sctp_stat)");
+SYSCTL_PROC(_net_inet_sctp, OID_AUTO, assoclist, CTLFLAG_VNET | CTLTYPE_OPAQUE | CTLFLAG_RD,
+    NULL, 0, sctp_sysctl_handle_assoclist, "S,xassoc", "List of active SCTP associations");

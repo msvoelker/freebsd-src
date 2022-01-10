@@ -287,8 +287,11 @@ sctp_find_alternate_net(struct sctp_tcb *stcb,
 		} else {
 			return (max_cwnd_net);
 		}
-	}			/* JRS 5/14/07 - If mode is set to 1, use the
-				 * CMT policy for choosing an alternate net. */
+	}
+	/*
+	 * JRS 5/14/07 - If mode is set to 1, use the CMT policy for
+	 * choosing an alternate net.
+	 */ 
 	else if (mode == 1) {
 		TAILQ_FOREACH(mnet, &stcb->asoc.nets, sctp_next) {
 			if (((mnet->dest_state & SCTP_ADDR_REACHABLE) != SCTP_ADDR_REACHABLE) ||
@@ -481,6 +484,7 @@ sctp_recover_sent_list(struct sctp_tcb *stcb)
 		SCTP_PRINTF("chk:%p TSN:%x\n", (void *)chk, chk->rec.data.tsn);
 	}
 }
+
 #endif
 
 static int
@@ -660,7 +664,6 @@ start_again:
 					sctp_log_fr(chk->rec.data.tsn, chk->snd_count,
 					    0, SCTP_FR_T3_MARKED);
 				}
-
 				if (chk->rec.data.chunk_was_revoked) {
 					/* deflate the cwnd */
 					chk->whoTo->cwnd -= chk->book_size;
@@ -727,7 +730,6 @@ start_again:
 		/* we did not subtract the same things? */
 		audit_tf = 1;
 	}
-
 	if (SCTP_BASE_SYSCTL(sctp_logging_level) & SCTP_FR_LOGGING_ENABLE) {
 		sctp_log_fr(tsnfirst, tsnlast, num_mk, SCTP_FR_T3_TIMEOUT);
 	}
@@ -802,7 +804,6 @@ start_again:
 					    (uint32_t)(uintptr_t)chk->whoTo,
 					    chk->rec.data.tsn);
 				}
-
 				sctp_flight_size_increase(chk);
 				sctp_total_flight_increase(stcb, chk);
 			}
@@ -922,7 +923,6 @@ sctp_t3rxt_timer(struct sctp_inpcb *inp,
 	    (net->flight_size == 0)) {
 		(*stcb->asoc.cc_functions.sctp_cwnd_new_transmission_begins) (stcb, net);
 	}
-
 	/*
 	 * setup the sat loss recovery that prevents satellite cwnd advance.
 	 */
@@ -1227,7 +1227,6 @@ sctp_asconf_timer(struct sctp_inpcb *inp, struct sctp_tcb *stcb,
 			asconf->whoTo = alt;
 			atomic_add_int(&alt->ref_count, 1);
 		}
-
 		/* See if an ECN Echo is also stranded */
 		TAILQ_FOREACH(chk, &stcb->asoc.control_send_queue, sctp_next) {
 			if ((chk->whoTo == net) &&
@@ -1470,66 +1469,6 @@ sctp_heartbeat_timer(struct sctp_inpcb *inp, struct sctp_tcb *stcb,
 		}
 	}
 	return (0);
-}
-
-void
-sctp_pathmtu_timer(struct sctp_inpcb *inp,
-    struct sctp_tcb *stcb,
-    struct sctp_nets *net)
-{
-	uint32_t next_mtu, mtu;
-
-	next_mtu = sctp_get_next_mtu(net->mtu);
-
-	if ((next_mtu > net->mtu) && (net->port == 0)) {
-		if ((net->src_addr_selected == 0) ||
-		    (net->ro._s_addr == NULL) ||
-		    (net->ro._s_addr->localifa_flags & SCTP_BEING_DELETED)) {
-			if ((net->ro._s_addr != NULL) && (net->ro._s_addr->localifa_flags & SCTP_BEING_DELETED)) {
-				sctp_free_ifa(net->ro._s_addr);
-				net->ro._s_addr = NULL;
-				net->src_addr_selected = 0;
-			} else if (net->ro._s_addr == NULL) {
-#if defined(INET6) && defined(SCTP_EMBEDDED_V6_SCOPE)
-				if (net->ro._l_addr.sa.sa_family == AF_INET6) {
-					struct sockaddr_in6 *sin6 = (struct sockaddr_in6 *)&net->ro._l_addr;
-
-					/* KAME hack: embed scopeid */
-					(void)sa6_embedscope(sin6, MODULE_GLOBAL(ip6_use_defzone));
-				}
-#endif
-
-				net->ro._s_addr = sctp_source_address_selection(inp,
-				    stcb,
-				    (sctp_route_t *)&net->ro,
-				    net, 0, stcb->asoc.vrf_id);
-#if defined(INET6) && defined(SCTP_EMBEDDED_V6_SCOPE)
-				if (net->ro._l_addr.sa.sa_family == AF_INET6) {
-					struct sockaddr_in6 *sin6 = (struct sockaddr_in6 *)&net->ro._l_addr;
-
-					(void)sa6_recoverscope(sin6);
-				}
-#endif				/* INET6 */
-			}
-			if (net->ro._s_addr)
-				net->src_addr_selected = 1;
-		}
-		if (net->ro._s_addr) {
-			mtu = SCTP_GATHER_MTU_FROM_ROUTE(net->ro._s_addr, &net->ro._s_addr.sa, net->ro.ro_nh);
-#if defined(INET) || defined(INET6)
-			if (net->port) {
-				mtu -= sizeof(struct udphdr);
-			}
-#endif
-			if (mtu > next_mtu) {
-				net->mtu = next_mtu;
-			} else {
-				net->mtu = mtu;
-			}
-		}
-	}
-	/* restart the timer */
-	sctp_timer_start(SCTP_TIMER_TYPE_PATHMTURAISE, inp, stcb, net);
 }
 
 void

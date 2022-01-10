@@ -107,7 +107,7 @@ void sctp_send_shutdown_ack(struct sctp_tcb *, struct sctp_nets *);
 
 void sctp_send_shutdown_complete(struct sctp_tcb *, struct sctp_nets *, int);
 
-void
+void 
 sctp_send_shutdown_complete2(struct sockaddr *, struct sockaddr *,
     struct sctphdr *,
     uint8_t, uint32_t, uint16_t,
@@ -198,3 +198,6 @@ sctp_sosend(struct socket *so,
 
 #endif
 #endif
+
+void
+     sctp_send_plpmtud_probe(struct sctp_tcb *, struct sctp_nets *, uint32_t, uint32_t);

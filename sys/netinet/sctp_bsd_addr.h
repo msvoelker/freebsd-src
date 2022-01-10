@@ -33,7 +33,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
+__FBSDID("$FreeBSD: head/sys/netinet/sctp_bsd_addr.h 365071 2020-09-01 21:19:14Z mjg $");
 
 #ifndef _NETINET_SCTP_BSD_ADDR_H_
 #define _NETINET_SCTP_BSD_ADDR_H_
@@ -49,6 +49,7 @@ void sctp_startup_iterator(void);
 
 #ifdef INET6
 void sctp_gather_internal_ifa_flags(struct sctp_ifa *ifa);
+
 #endif
 
 #ifdef  SCTP_PACKET_LOGGING

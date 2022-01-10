@@ -351,6 +351,7 @@ struct sctp_pcbtsn_rlog {
 	uint16_t sz;
 	uint16_t flgs;
 };
+
 #define SCTP_READ_LOG_SIZE 135	/* we choose the number to make a pcb a page */
 
 struct sctp_inpcb {
@@ -361,7 +362,7 @@ struct sctp_inpcb {
 	union {
 		struct inpcb inp;
 		char align[(sizeof(struct inpcb) + SCTP_ALIGNM1) &
-		    ~SCTP_ALIGNM1];
+		        ~SCTP_ALIGNM1];
 	}     ip_inp;
 
 	/* Socket buffer lock protects read_queue and of course sb_cc */
@@ -386,7 +387,7 @@ struct sctp_inpcb {
 	uint64_t sctp_features;	/* Feature flags */
 	uint32_t sctp_flags;	/* INP state flag set */
 	uint32_t sctp_mobility_features;	/* Mobility  Feature flags */
-	struct sctp_pcb sctp_ep;	/* SCTP ep data */
+	struct sctp_pcb sctp_ep;/* SCTP ep data */
 	/* head of the hash of all associations */
 	struct sctpasochead *sctp_tcbhash;
 	u_long sctp_hashmark;
@@ -409,6 +410,14 @@ struct sctp_inpcb {
 	uint8_t reconfig_supported;
 	uint8_t nrsack_supported;
 	uint8_t pktdrop_supported;
+	uint8_t plpmtud_enabled;
+	uint32_t plpmtud_ipv4_min_mtu;
+	uint32_t plpmtud_ipv6_min_mtu;
+	uint8_t plpmtud_search_algorithm;
+	uint8_t plpmtud_use_ptb;
+	uint16_t plpmtud_max_probes;
+	uint32_t plpmtud_min_probe_rtx_time;
+	uint32_t plpmtud_raise_time;
 	struct sctp_nonpad_sndrcvinfo def_send;
 	/*-
 	 * These three are here for the sosend_dgram
@@ -480,11 +489,13 @@ VNET_DECLARE(struct sctp_base_info, system_base_info);
 
 #ifdef INET6
 int SCTP6_ARE_ADDR_EQUAL(struct sockaddr_in6 *a, struct sockaddr_in6 *b);
+
 #endif
 
 void sctp_fill_pcbinfo(struct sctp_pcbinfo *);
 
-struct sctp_ifn *sctp_find_ifn(void *ifn, uint32_t ifn_index);
+struct sctp_ifn *
+         sctp_find_ifn(void *ifn, uint32_t ifn_index);
 
 struct sctp_vrf *sctp_allocate_vrf(int vrfid);
 struct sctp_vrf *sctp_find_vrf(uint32_t vrfid);
@@ -514,7 +525,7 @@ void sctp_update_ifn_mtu(uint32_t ifn_index, uint32_t mtu);
 void sctp_free_ifn(struct sctp_ifn *sctp_ifnp);
 void sctp_free_ifa(struct sctp_ifa *sctp_ifap);
 
-void
+void 
 sctp_del_addr_from_vrf(uint32_t vrfid, struct sockaddr *addr,
     uint32_t ifn_index, const char *if_name);
 
@@ -554,7 +565,8 @@ sctp_findassociation_ep_addr(struct sctp_inpcb **,
     struct sockaddr *, struct sctp_nets **, struct sockaddr *,
     struct sctp_tcb *);
 
-struct sctp_tcb *sctp_findasoc_ep_asocid_locked(struct sctp_inpcb *inp, sctp_assoc_t asoc_id, int want_lock);
+struct sctp_tcb *
+         sctp_findasoc_ep_asocid_locked(struct sctp_inpcb *inp, sctp_assoc_t asoc_id, int want_lock);
 
 struct sctp_tcb *
 sctp_findassociation_ep_asocid(struct sctp_inpcb *,
@@ -610,7 +622,7 @@ sctp_set_primary_addr(struct sctp_tcb *, struct sockaddr *,
     struct sctp_nets *);
 
 bool
-     sctp_is_vtag_good(uint32_t, uint16_t lport, uint16_t rport, struct timeval *);
+sctp_is_vtag_good(uint32_t, uint16_t lport, uint16_t rport, struct timeval *);
 
 /* void sctp_drain(void); */
 
@@ -634,6 +646,7 @@ sctp_initiate_iterator(inp_func inpf,
     end_func ef,
     struct sctp_inpcb *,
     uint8_t co_off);
+
 #if defined(SCTP_MCORE_INPUT) && defined(SMP)
 void
      sctp_queue_to_mcore(struct mbuf *m, int off, int cpu_to_use);

@@ -33,7 +33,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
+__FBSDID("$FreeBSD: head/sys/netinet/sctp_bsd_addr.c 366426 2020-10-04 15:37:34Z tuexen $");
 
 #include <netinet/sctp_os.h>
 #include <netinet/sctp_var.h>
@@ -141,6 +141,7 @@ sctp_gather_internal_ifa_flags(struct sctp_ifa *ifa)
 		ifa->localifa_flags &= ~SCTP_ADDR_IFA_UNUSEABLE;
 	}
 }
+
 #endif				/* INET6 */
 
 static uint32_t
@@ -198,8 +199,10 @@ sctp_init_ifns_for_vrf(int vrfid)
 	struct ifaddr *ifa;
 	struct sctp_ifa *sctp_ifa;
 	uint32_t ifa_flags;
+
 #ifdef INET6
 	struct in6_ifaddr *ifa6;
+
 #endif
 
 	IFNET_RLOCK();
@@ -301,12 +304,10 @@ sctp_addr_change(struct ifaddr *ifa, int cmd)
 		SCTP_BASE_VAR(first_time) = 1;
 		sctp_init_ifns_for_vrf(SCTP_DEFAULT_VRFID);
 	}
-
 	if ((cmd != RTM_ADD) && (cmd != RTM_DELETE)) {
 		/* don't know what to do with this */
 		return;
 	}
-
 	if (ifa->ifa_addr == NULL) {
 		return;
 	}

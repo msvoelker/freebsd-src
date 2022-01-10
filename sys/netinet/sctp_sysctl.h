@@ -33,7 +33,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
+__FBSDID("$FreeBSD: head/sys/netinet/sctp_sysctl.h 366750 2020-10-16 10:44:48Z tuexen $");
 
 #ifndef _NETINET_SCTP_SYSCTL_H_
 #define _NETINET_SCTP_SYSCTL_H_
@@ -53,6 +53,14 @@ struct sctp_sysctl {
 	uint32_t sctp_reconfig_enable;
 	uint32_t sctp_nrsack_enable;
 	uint32_t sctp_pktdrop_enable;
+	uint32_t sctp_plpmtud_enable;
+	uint32_t sctp_plpmtud_ipv4_min_mtu;
+	uint32_t sctp_plpmtud_ipv6_min_mtu;
+	uint32_t sctp_plpmtud_search_algorithm;
+	uint32_t sctp_plpmtud_use_ptb;
+	uint32_t sctp_plpmtud_max_probes;
+	uint32_t sctp_plpmtud_min_probe_rtx_time;
+	uint32_t sctp_plpmtud_raise_time;
 	uint32_t sctp_fr_max_burst_default;
 	uint32_t sctp_peer_chunk_oh;
 	uint32_t sctp_max_burst_default;
@@ -66,7 +74,6 @@ struct sctp_sysctl {
 	uint32_t sctp_system_free_resc_limit;
 	uint32_t sctp_asoc_free_resc_limit;
 	uint32_t sctp_heartbeat_interval_default;
-	uint32_t sctp_pmtu_raise_time_default;
 	uint32_t sctp_shutdown_guard_time_default;
 	uint32_t sctp_secret_lifetime_default;
 	uint32_t sctp_rto_max_default;
@@ -191,6 +198,54 @@ struct sctp_sysctl {
 #define SCTPCTL_PKTDROP_ENABLE_MAX	1
 #define SCTPCTL_PKTDROP_ENABLE_DEFAULT	0
 
+/* plpmtud_enable: Enable Packetization Layer Path MTU Discovery */
+#define SCTPCTL_PLPMTUD_ENABLE_DESC	"Enable Packetization Layer PMTU Discovery (PLPMTUD)"
+#define SCTPCTL_PLPMTUD_ENABLE_MIN	0
+#define SCTPCTL_PLPMTUD_ENABLE_MAX	1
+#define SCTPCTL_PLPMTUD_ENABLE_DEFAULT	0
+
+/* plpmtud_ipv4_min_pmtu: IPv4 minimum path MTU - 76 B is the size of an IP packet containing only an SCTP packet with a HEARTBEAT chunk and heartbeat information */
+#define SCTPCTL_PLPMTUD_IPv4_MIN_MTU_DESC	"IPv4 minimum path MTU"
+#define SCTPCTL_PLPMTUD_IPv4_MIN_MTU_MIN	76
+#define SCTPCTL_PLPMTUD_IPv4_MIN_MTU_MAX	0xFFFFFFFF
+#define SCTPCTL_PLPMTUD_IPv4_MIN_MTU_DEFAULT	76
+
+/* plpmtud_ipv6_min_mtu: IPv6 minimum path MTU */
+#define SCTPCTL_PLPMTUD_IPv6_MIN_MTU_DESC	"IPv6 minimum path MTU"
+#define SCTPCTL_PLPMTUD_IPv6_MIN_MTU_MIN	1280
+#define SCTPCTL_PLPMTUD_IPv6_MIN_MTU_MAX	0xFFFFFFFF
+#define SCTPCTL_PLPMTUD_IPv6_MIN_MTU_DEFAULT	1280
+
+/* plpmtud_search_algorithm: Sets the search algorithm for PLPMUTUD (1=Up, 2=OptBinary) */
+#define SCTPCTL_PLPMTUD_SEARCH_ALGORITHM_DESC	"PLPMTUD search algorithm (1=Up, 2=OptBinary)"
+#define SCTPCTL_PLPMTUD_SEARCH_ALGORITHM_MIN	1
+#define SCTPCTL_PLPMTUD_SEARCH_ALGORITHM_MAX	2
+#define SCTPCTL_PLPMTUD_SEARCH_ALGORITHM_DEFAULT	2
+
+/* plpmtud_use_ptb: Decides whether to process PTB messages in PLPMTUD */
+#define SCTPCTL_PLPMTUD_USE_PTB_DESC	"Process ICMP Packet Too Big (PTB) messages in PLPMTUD"
+#define SCTPCTL_PLPMTUD_USE_PTB_MIN	0
+#define SCTPCTL_PLPMTUD_USE_PTB_MAX	1
+#define SCTPCTL_PLPMTUD_USE_PTB_DEFAULT	1
+
+/* plpmtud_max_probes: Max number of probe packets to send for a PMTU candidate before consider the probe as failed */
+#define SCTPCTL_PLPMTUD_MAX_PROBES_DESC	"Max number of probe packets to send for a PMTU candidate"
+#define SCTPCTL_PLPMTUD_MAX_PROBES_MIN	1
+#define SCTPCTL_PLPMTUD_MAX_PROBES_MAX	0xFFFF
+#define SCTPCTL_PLPMTUD_MAX_PROBES_DEFAULT	3
+
+/* plpmtud_min_probe_rtx_time: Time (ms) to wait at least for a response after sending a probe packet retransmission if we haven't received an ack for a later sent probe packet */
+#define SCTPCTL_PLPMTUD_MIN_PROBE_RTX_TIME_DESC	"Time (ms) to wait at least for a response after sending a probe packet retransmission in case no later sent probe packet was acknowledged"
+#define SCTPCTL_PLPMTUD_MIN_PROBE_RTX_TIME_MIN	0
+#define SCTPCTL_PLPMTUD_MIN_PROBE_RTX_TIME_MAX	0xFFFFFFFF
+#define SCTPCTL_PLPMTUD_MIN_PROBE_RTX_TIME_DEFAULT	1000
+
+/* plpmtud_raise_time: Time (ms) to wait before trying to raise the current PMTU by sending a larger probe packet */
+#define SCTPCTL_PLPMTUD_RAISE_TIME_DESC	"Time (ms) to wait after a PMTU estimation has been found before sending a packet to probe for a larger PMTU"
+#define SCTPCTL_PLPMTUD_RAISE_TIME_MIN	1000
+#define SCTPCTL_PLPMTUD_RAISE_TIME_MAX	0xFFFFFFFF
+#define SCTPCTL_PLPMTUD_RAISE_TIME_DEFAULT	600000
+
 /* loopback_nocsum: Enable NO Csum on packets sent on loopback */
 #define SCTPCTL_LOOPBACK_NOCSUM_DESC	"Enable NO Csum on packets sent on loopback"
 #define SCTPCTL_LOOPBACK_NOCSUM_MIN	0
@@ -274,12 +329,6 @@ struct sctp_sysctl {
 #define SCTPCTL_HEARTBEAT_INTERVAL_MIN	0
 #define SCTPCTL_HEARTBEAT_INTERVAL_MAX	0xFFFFFFFF
 #define SCTPCTL_HEARTBEAT_INTERVAL_DEFAULT	SCTP_HB_DEFAULT_MSEC
-
-/* pmtu_raise_time: Default PMTU raise timer in seconds */
-#define SCTPCTL_PMTU_RAISE_TIME_DESC	"Default PMTU raise timer in seconds"
-#define SCTPCTL_PMTU_RAISE_TIME_MIN	0
-#define SCTPCTL_PMTU_RAISE_TIME_MAX	0xFFFFFFFF
-#define SCTPCTL_PMTU_RAISE_TIME_DEFAULT	SCTP_DEF_PMTU_RAISE_SEC
 
 /* shutdown_guard_time: Default shutdown guard timer in seconds */
 #define SCTPCTL_SHUTDOWN_GUARD_TIME_DESC	"Shutdown guard timer in seconds (0 means 5 times RTO.Max)"

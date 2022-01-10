@@ -51,6 +51,7 @@ __FBSDID("$FreeBSD$");
 #include <netinet/sctp_auth.h>
 #include <netinet/sctp_asconf.h>
 #include <netinet/sctp_bsd_addr.h>
+#include <netinet/sctp_plpmtud.h>
 #include <netinet/sctp_kdtrace.h>
 #if defined(INET6) || defined(INET)
 #include <netinet/tcp_var.h>
@@ -278,6 +279,7 @@ sctp_log_mbc(struct mbuf *m, int from)
 		sctp_log_mb(mat, from);
 	}
 }
+
 #endif
 
 void
@@ -483,6 +485,7 @@ sctp_log_mbcnt(uint8_t from, uint32_t total_oq, uint32_t book, uint32_t total_mb
 	    sctp_clog.x.misc.log4);
 #endif
 }
+
 #endif
 
 void
@@ -820,7 +823,8 @@ sctp_secs_to_ticks(uint32_t secs)
 	uint64_t temp;
 	uint32_t ticks;
 
-	temp = (uint64_t)secs * hz;
+	temp = (uint64_t)secs *hz;
+
 	if (temp > UINT32_MAX) {
 		ticks = UINT32_MAX;
 	} else {
@@ -913,79 +917,6 @@ sctp_stop_association_timers(struct sctp_tcb *stcb, bool stop_assoc_kill_timer)
 		sctp_timer_stop(SCTP_TIMER_TYPE_HEARTBEAT, inp, stcb, net,
 		    SCTP_FROM_SCTPUTIL + SCTP_LOC_31);
 	}
-}
-
-/*
- * A list of sizes based on typical mtu's, used only if next hop size not
- * returned. These values MUST be multiples of 4 and MUST be ordered.
- */
-static uint32_t sctp_mtu_sizes[] = {
-	68,
-	296,
-	508,
-	512,
-	544,
-	576,
-	1004,
-	1492,
-	1500,
-	1536,
-	2000,
-	2048,
-	4352,
-	4464,
-	8168,
-	17912,
-	32000,
-	65532
-};
-
-/*
- * Return the largest MTU in sctp_mtu_sizes smaller than val.
- * If val is smaller than the minimum, just return the largest
- * multiple of 4 smaller or equal to val.
- * Ensure that the result is a multiple of 4.
- */
-uint32_t
-sctp_get_prev_mtu(uint32_t val)
-{
-	uint32_t i;
-
-	val &= 0xfffffffc;
-	if (val <= sctp_mtu_sizes[0]) {
-		return (val);
-	}
-	for (i = 1; i < (sizeof(sctp_mtu_sizes) / sizeof(uint32_t)); i++) {
-		if (val <= sctp_mtu_sizes[i]) {
-			break;
-		}
-	}
-	KASSERT((sctp_mtu_sizes[i - 1] & 0x00000003) == 0,
-	    ("sctp_mtu_sizes[%u] not a multiple of 4", i - 1));
-	return (sctp_mtu_sizes[i - 1]);
-}
-
-/*
- * Return the smallest MTU in sctp_mtu_sizes larger than val.
- * If val is larger than the maximum, just return the largest multiple of 4 smaller
- * or equal to val.
- * Ensure that the result is a multiple of 4.
- */
-uint32_t
-sctp_get_next_mtu(uint32_t val)
-{
-	/* select another MTU that is just bigger than this one */
-	uint32_t i;
-
-	val &= 0xfffffffc;
-	for (i = 0; i < (sizeof(sctp_mtu_sizes) / sizeof(uint32_t)); i++) {
-		if (val < sctp_mtu_sizes[i]) {
-			KASSERT((sctp_mtu_sizes[i] & 0x00000003) == 0,
-			    ("sctp_mtu_sizes[%u] not a multiple of 4", i));
-			return (sctp_mtu_sizes[i]);
-		}
-	}
-	return (val);
 }
 
 void
@@ -1129,8 +1060,10 @@ sctp_init_asoc(struct sctp_inpcb *inp, struct sctp_tcb *stcb,
 	 * caller in the sctp_aloc_assoc() function.
 	 */
 	int i;
+
 #if defined(SCTP_DETAILED_STR_STATS)
 	int j;
+
 #endif
 
 	asoc = &stcb->asoc;
@@ -1149,6 +1082,14 @@ sctp_init_asoc(struct sctp_inpcb *inp, struct sctp_tcb *stcb,
 	asoc->nrsack_supported = inp->nrsack_supported;
 	asoc->pktdrop_supported = inp->pktdrop_supported;
 	asoc->idata_supported = inp->idata_supported;
+	asoc->plpmtud_enabled = inp->plpmtud_enabled;
+	asoc->plpmtud_ipv4_min_mtu = inp->plpmtud_ipv4_min_mtu;
+	asoc->plpmtud_ipv6_min_mtu = inp->plpmtud_ipv6_min_mtu;
+	asoc->plpmtud_search_algorithm = inp->plpmtud_search_algorithm;
+	asoc->plpmtud_use_ptb = inp->plpmtud_use_ptb;
+	asoc->plpmtud_min_probe_rtx_time = inp->plpmtud_min_probe_rtx_time;
+	asoc->plpmtud_max_probes = inp->plpmtud_max_probes;
+	asoc->plpmtud_raise_time = inp->plpmtud_raise_time;
 	asoc->sctp_cmt_pf = (uint8_t)0;
 	asoc->sctp_frag_point = inp->sctp_frag_point;
 	asoc->sctp_features = inp->sctp_features;
@@ -1583,7 +1524,6 @@ select_a_new_ep:
 			SCTP_INP_RLOCK_ASSERT(it->inp);
 			SCTP_TCB_LOCK_ASSERT(it->stcb);
 		}
-
 		SCTP_TCB_UNLOCK(it->stcb);
 next_assoc:
 		it->stcb = LIST_NEXT(it->stcb, sctp_tcblist);
@@ -1771,7 +1711,6 @@ sctp_timeout_handler(void *t)
 		    type);
 		goto out_decr;
 	}
-
 	tmr->stopped_from = 0xa003;
 	if (stcb) {
 		SCTP_TCB_LOCK(stcb);
@@ -1966,7 +1905,7 @@ sctp_timeout_handler(void *t)
 		    ("timeout of type %d: inp = %p, stcb = %p, net = %p",
 		    type, inp, stcb, net));
 		SCTP_STAT_INCR(sctps_timopathmtu);
-		sctp_pathmtu_timer(inp, stcb, net);
+		sctp_plpmtud_on_probe_timeout(stcb, net);
 		did_output = false;
 		break;
 	case SCTP_TIMER_TYPE_SHUTDOWNACK:
@@ -2140,7 +2079,7 @@ out_decr:
  * |SCTP_TIMER_TYPE_HEARTBEAT    |Yes |Yes |Yes |
  * |SCTP_TIMER_TYPE_COOKIE       |Yes |Yes |Yes |
  * |SCTP_TIMER_TYPE_NEWCOOKIE    |Yes |No  |No  |
- * |SCTP_TIMER_TYPE_PATHMTURAISE |Yes |Yes |Yes |
+ * |SCTP_TIMER_TYPE_PATHMTURAISE |No  |Yes |Yes |
  * |SCTP_TIMER_TYPE_SHUTDOWNACK  |Yes |Yes |Yes |
  * |SCTP_TIMER_TYPE_ASCONF       |Yes |Yes |Yes |
  * |SCTP_TIMER_TYPE_SHUTDOWNGUARD|Yes |Yes |No  |
@@ -2352,26 +2291,24 @@ sctp_timer_start(int t_type, struct sctp_inpcb *inp, struct sctp_tcb *stcb,
 		to_ticks = inp->sctp_ep.sctp_timeoutticks[SCTP_TIMER_SIGNATURE];
 		break;
 	case SCTP_TIMER_TYPE_PATHMTURAISE:
-		/*
-		 * Here we use the value found in the EP for PMTUD,
-		 * ususually about 10 minutes.
-		 */
-		if ((inp == NULL) || (stcb == NULL) || (net == NULL)) {
+		if ((stcb == NULL) || (net == NULL)) {
 #ifdef INVARIANTS
-			panic("sctp_timer_start of type %d: inp = %p, stcb = %p, net = %p",
-			    t_type, inp, stcb, net);
+			panic("sctp_timer_start of type %d: stcb = %p, net = %p",
+			    t_type, stcb, net);
 #else
 			return;
 #endif
 		}
-		if (net->dest_state & SCTP_ADDR_NO_PMTUD) {
+		if (!net->plpmtud_enabled) {
 			SCTPDBG(SCTP_DEBUG_TIMER2,
-			    "Timer type %d not started: inp=%p, stcb=%p, net=%p.\n",
-			    t_type, inp, stcb, net);
+			    "Timer type %d not started: stcb=%p, net=%p.\n",
+			    t_type, stcb, net);
 			return;
 		}
+		KASSERT(net->plpmtud_timer_value > 0,
+		    ("sctp_timer_start PMTUD timer with net->plpmtud_enabled and net->plpmtud_timer_value==0"));
 		tmr = &net->pmtu_timer;
-		to_ticks = inp->sctp_ep.sctp_timeoutticks[SCTP_TIMER_PMTU];
+		to_ticks = sctp_msecs_to_ticks(net->plpmtud_timer_value);
 		break;
 	case SCTP_TIMER_TYPE_SHUTDOWNACK:
 		/* Here we use the RTO of the destination. */
@@ -2598,7 +2535,7 @@ sctp_timer_start(int t_type, struct sctp_inpcb *inp, struct sctp_tcb *stcb,
  * |SCTP_TIMER_TYPE_HEARTBEAT    |Yes |Yes |Yes |
  * |SCTP_TIMER_TYPE_COOKIE       |Yes |Yes |Yes |
  * |SCTP_TIMER_TYPE_NEWCOOKIE    |Yes |No  |No  |
- * |SCTP_TIMER_TYPE_PATHMTURAISE |Yes |Yes |Yes |
+ * |SCTP_TIMER_TYPE_PATHMTURAISE |No  |Yes |Yes |
  * |SCTP_TIMER_TYPE_SHUTDOWNACK  |Yes |Yes |Yes |
  * |SCTP_TIMER_TYPE_ASCONF       |Yes |Yes |No  |
  * |SCTP_TIMER_TYPE_SHUTDOWNGUARD|Yes |Yes |No  |
@@ -2707,10 +2644,10 @@ sctp_timer_stop(int t_type, struct sctp_inpcb *inp, struct sctp_tcb *stcb,
 		tmr = &inp->sctp_ep.signature_change;
 		break;
 	case SCTP_TIMER_TYPE_PATHMTURAISE:
-		if ((inp == NULL) || (stcb == NULL) || (net == NULL)) {
+		if ((stcb == NULL) || (net == NULL)) {
 #ifdef INVARIANTS
-			panic("sctp_timer_stop of type %d: inp = %p, stcb = %p, net = %p",
-			    t_type, inp, stcb, net);
+			panic("sctp_timer_stop of type %d: stcb = %p, net = %p",
+			    t_type, stcb, net);
 #else
 			return;
 #endif
@@ -2940,7 +2877,8 @@ sctp_calculate_rto(struct sctp_tcb *stcb,
 		return (0);
 	}
 	timevalsub(&now, old);
-	rtt_us = (uint64_t)1000000 * (uint64_t)now.tv_sec + (uint64_t)now.tv_usec;
+	rtt_us = (uint64_t)1000000 *(uint64_t)now.tv_sec + (uint64_t)now.tv_usec;
+
 	if (rtt_us > SCTP_RTO_UPPER_BOUND * 1000) {
 		/* The RTT is larger than a sane value. */
 		return (0);
@@ -2968,7 +2906,6 @@ sctp_calculate_rto(struct sctp_tcb *stcb,
 			net->lan_type = SCTP_LAN_LOCAL;
 		}
 	}
-
 	/***************************/
 	/* 2. update RTTVAR & SRTT */
 	/***************************/
@@ -3377,7 +3314,6 @@ sctp_notify_send_failed(struct sctp_tcb *stcb, uint8_t sent, uint32_t error,
 		/* event not enabled */
 		return;
 	}
-
 	if (sctp_stcb_is_feature_on(stcb->sctp_ep, stcb, SCTP_PCB_FLAGS_RECVNSENDFAILEVNT)) {
 		notifhdr_len = sizeof(struct sctp_send_failed_event);
 	} else {
@@ -3599,7 +3535,6 @@ sctp_notify_adaptation_layer(struct sctp_tcb *stcb)
 		/* event not enabled */
 		return;
 	}
-
 	m_notify = sctp_get_mbuf_for_msg(sizeof(struct sctp_adaption_event), 0, M_NOWAIT, 1, MT_DATA);
 	if (m_notify == NULL)
 		/* no space left */
@@ -3652,7 +3587,6 @@ sctp_notify_partial_delivery_indication(struct sctp_tcb *stcb, uint32_t error,
 	if (stcb->sctp_ep->sctp_flags & SCTP_PCB_FLAGS_SOCKET_CANT_READ) {
 		return;
 	}
-
 	m_notify = sctp_get_mbuf_for_msg(sizeof(struct sctp_pdapi_event), 0, M_NOWAIT, 1, MT_DATA);
 	if (m_notify == NULL)
 		/* no space left */
@@ -3723,7 +3657,6 @@ sctp_notify_shutdown_event(struct sctp_tcb *stcb)
 		/* event not enabled */
 		return;
 	}
-
 	m_notify = sctp_get_mbuf_for_msg(sizeof(struct sctp_shutdown_event), 0, M_NOWAIT, 1, MT_DATA);
 	if (m_notify == NULL)
 		/* no space left */
@@ -3769,7 +3702,6 @@ sctp_notify_sender_dry_event(struct sctp_tcb *stcb,
 		/* event not enabled */
 		return;
 	}
-
 	m_notify = sctp_get_mbuf_for_msg(sizeof(struct sctp_sender_dry_event), 0, M_NOWAIT, 1, MT_DATA);
 	if (m_notify == NULL) {
 		/* no space left */
@@ -3923,7 +3855,6 @@ sctp_notify_stream_reset(struct sctp_tcb *stcb,
 		/* event not enabled */
 		return;
 	}
-
 	m_notify = sctp_get_mbuf_for_msg(MCLBYTES, 0, M_NOWAIT, 1, MT_DATA);
 	if (m_notify == NULL)
 		/* no space left */
@@ -4398,6 +4329,7 @@ sctp_abort_association(struct sctp_inpcb *inp, struct sctp_tcb *stcb,
 		    SCTP_FROM_SCTPUTIL + SCTP_LOC_4);
 	}
 }
+
 #ifdef SCTP_ASOCLOG_OF_TSNS
 void
 sctp_print_out_track_log(struct sctp_tcb *stcb)
@@ -4459,6 +4391,7 @@ none_in:
 	}
 #endif
 }
+
 #endif
 
 void
@@ -4666,6 +4599,7 @@ sctp_recover_scope(struct sockaddr_in6 *addr, struct sockaddr_in6 *store)
 	}
 	return (addr);
 }
+
 #endif
 
 /*
@@ -4719,6 +4653,7 @@ sctp_print_address(struct sockaddr *sa)
 {
 #ifdef INET6
 	char ip6buf[INET6_ADDRSTRLEN];
+
 #endif
 
 	switch (sa->sa_family) {
@@ -5256,7 +5191,6 @@ sctp_find_ifa_in_ep(struct sctp_inpcb *inp, struct sockaddr *addr,
 	if (holds_lock == 0) {
 		SCTP_INP_RLOCK(inp);
 	}
-
 	LIST_FOREACH(laddr, &inp->sctp_addr_list, sctp_nxt_addr) {
 		if (laddr->ifa == NULL)
 			continue;
@@ -5345,7 +5279,6 @@ sctp_find_ifa_by_addr(struct sockaddr *addr, uint32_t vrf_id, int holds_lock)
 			SCTP_IPI_ADDR_RUNLOCK();
 		return (NULL);
 	}
-
 	hash_of_addr = sctp_get_ifa_hash_val(addr);
 
 	hash_head = &vrf->vrf_addr_hash[(hash_of_addr & vrf->vrf_addr_hashmark)];
@@ -5466,7 +5399,6 @@ out:
 	if (so && r_unlocked && hold_rlock) {
 		SCTP_INP_READ_LOCK(stcb->sctp_ep);
 	}
-
 	SCTP_INP_DECR_REF(stcb->sctp_ep);
 no_lock:
 	atomic_subtract_int(&stcb->asoc.refcnt, 1);
@@ -5489,7 +5421,7 @@ sctp_sorecvmsg(struct socket *so,
 	 * mp=NULL thus uio is the copy method to userland) MSG_WAITALL - ??
 	 * On the way out we may send out any combination of:
 	 * MSG_NOTIFICATION MSG_EOR
-	 *
+	 * 
 	 */
 	struct sctp_inpcb *inp = NULL;
 	ssize_t my_len = 0;
@@ -5517,7 +5449,6 @@ sctp_sorecvmsg(struct socket *so,
 		SCTP_LTRACE_ERR_RET(inp, NULL, NULL, SCTP_FROM_SCTPUTIL, EINVAL);
 		return (EINVAL);
 	}
-
 	if (msg_flags) {
 		in_flags = *msg_flags;
 		if (in_flags & MSG_PEEK)
@@ -5561,7 +5492,6 @@ sctp_sorecvmsg(struct socket *so,
 		sctp_misc_ints(SCTP_SORECV_ENTERPL,
 		    rwnd_req, block_allowed, so->so_rcv.sb_cc, (uint32_t)uio->uio_resid);
 	}
-
 	error = SOCK_IO_RECV_LOCK(so, SBLOCKWAIT(in_flags));
 	if (error) {
 		goto release_unlocked;
@@ -5670,7 +5600,6 @@ restart_nosblocks:
 		hold_rlock = 0;
 		goto restart;
 	}
-
 	if ((control->length == 0) &&
 	    (control->do_not_ref_stcb)) {
 		/*
@@ -5854,7 +5783,6 @@ found_one:
 	    control->do_not_ref_stcb == 0) {
 		stcb->asoc.strmin[control->sinfo_stream].delivery_started = 1;
 	}
-
 	/* First lets get off the sinfo and sockaddr info */
 	if ((sinfo != NULL) && (filling_sinfo != 0)) {
 		sinfo->sinfo_stream = control->sinfo_stream;
@@ -6016,7 +5944,6 @@ get_more_data:
 			if (inp->sctp_flags & SCTP_PCB_FLAGS_SOCKET_GONE) {
 				goto release;
 			}
-
 			if ((control->do_not_ref_stcb == 0) && stcb &&
 			    stcb->asoc.state & SCTP_STATE_ABOUT_TO_BE_FREED) {
 				no_rcv_needed = 1;
@@ -6229,7 +6156,6 @@ wait_some_more:
 		if (so->so_rcv.sb_state & SBS_CANTRCVMORE) {
 			goto release;
 		}
-
 		if (inp->sctp_flags & SCTP_PCB_FLAGS_SOCKET_GONE)
 			goto release;
 
@@ -6358,7 +6284,6 @@ release:
 		SOCKBUF_UNLOCK(&so->so_rcv);
 		hold_sblock = 0;
 	}
-
 	SOCK_IO_RECV_UNLOCK(so);
 	sockbuf_lock = 0;
 
@@ -6396,7 +6321,6 @@ out:
 	if (sockbuf_lock) {
 		SOCK_IO_RECV_UNLOCK(so);
 	}
-
 	if (freecnt_applied) {
 		/*
 		 * The lock on the socket buffer protects us so the free
@@ -6584,11 +6508,14 @@ sctp_connectx_helper_add(struct sctp_tcb *stcb, struct sockaddr *addr,
 	struct sctp_inpcb *inp;
 	struct sockaddr *sa;
 	size_t incr = 0;
+
 #ifdef INET
 	struct sockaddr_in *sin;
+
 #endif
 #ifdef INET6
 	struct sockaddr_in6 *sin6;
+
 #endif
 
 	sa = addr;
@@ -6736,12 +6663,15 @@ sctp_bindx_add_address(struct socket *so, struct sctp_inpcb *inp,
 {
 #if defined(INET) && defined(INET6)
 	struct sockaddr_in sin;
+
 #endif
 #ifdef INET6
 	struct sockaddr_in6 *sin6;
+
 #endif
 #ifdef INET
 	struct sockaddr_in *sinp;
+
 #endif
 	struct sockaddr *addr_to_use;
 	struct sctp_inpcb *lep;
@@ -6850,9 +6780,11 @@ sctp_bindx_delete_address(struct sctp_inpcb *inp,
     struct sockaddr *sa, uint32_t vrf_id, int *error)
 {
 	struct sockaddr *addr_to_use;
+
 #if defined(INET) && defined(INET6)
 	struct sockaddr_in6 *sin6;
 	struct sockaddr_in sin;
+
 #endif
 
 	/* see if we're bound all already! */
@@ -6930,11 +6862,14 @@ int
 sctp_local_addr_count(struct sctp_tcb *stcb)
 {
 	int loopback_scope;
+
 #if defined(INET)
 	int ipv4_local_scope, ipv4_addr_legal;
+
 #endif
 #if defined(INET6)
 	int local_scope, site_scope, ipv6_addr_legal;
+
 #endif
 	struct sctp_vrf *vrf;
 	struct sctp_ifn *sctp_ifn;
@@ -6959,7 +6894,6 @@ sctp_local_addr_count(struct sctp_tcb *stcb)
 		SCTP_IPI_ADDR_RUNLOCK();
 		return (0);
 	}
-
 	if (stcb->sctp_ep->sctp_flags & SCTP_PCB_FLAGS_BOUNDALL) {
 		/*
 		 * bound all case: go through all ifns on the vrf
@@ -7020,14 +6954,19 @@ sctp_local_addr_count(struct sctp_tcb *stcb)
 							if (sin6->sin6_scope_id == 0) {
 								if (sa6_recoverscope(sin6) != 0)
 									/*
-									 *
+									 * 
 									 * bad
-									 * link
-									 *
-									 * local
-									 *
-									 * address
-									 */
+									 * 
+									 * li
+									 * nk
+									 * 
+									 * loc
+									 * al
+									 * 
+									 * add
+									 * re
+									 * ss
+									 * */
 									continue;
 							}
 						}
@@ -7099,8 +7038,10 @@ sctp_recv_udp_tunneled_packet(struct mbuf *m, int off, struct inpcb *inp,
     const struct sockaddr *sa SCTP_UNUSED, void *ctx SCTP_UNUSED)
 {
 	struct ip *iph;
+
 #ifdef INET6
 	struct ip6_hdr *ip6;
+
 #endif
 	struct mbuf *sp, *last;
 	struct udphdr *uhdr;
@@ -7285,6 +7226,7 @@ sctp_recv_icmp_tunneled_packet(int cmd, struct sockaddr *sa, void *vip, void *ct
 	}
 	return;
 }
+
 #endif
 
 #ifdef INET6
@@ -7426,6 +7368,7 @@ sctp_recv_icmp6_tunneled_packet(int cmd, struct sockaddr *sa, void *d, void *ctx
 		}
 	}
 }
+
 #endif
 
 void
@@ -7454,11 +7397,14 @@ sctp_over_udp_start(void)
 {
 	uint16_t port;
 	int ret;
+
 #ifdef INET
 	struct sockaddr_in sin;
+
 #endif
 #ifdef INET6
 	struct sockaddr_in6 sin6;
+
 #endif
 	/*
 	 * This function assumes sysctl caller holds sctp_sysctl_info_lock()
@@ -7625,6 +7571,7 @@ sctp_set_state(struct sctp_tcb *stcb, int new_state)
 {
 #if defined(KDTRACE_HOOKS)
 	int old_state = stcb->asoc.state;
+
 #endif
 
 	KASSERT((new_state & ~SCTP_STATE_MASK) == 0,
@@ -7650,6 +7597,7 @@ sctp_add_substate(struct sctp_tcb *stcb, int substate)
 {
 #if defined(KDTRACE_HOOKS)
 	int old_state = stcb->asoc.state;
+
 #endif
 
 	KASSERT((substate & SCTP_STATE_MASK) == 0,
