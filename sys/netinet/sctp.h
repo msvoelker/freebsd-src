@@ -33,7 +33,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
+__FBSDID("$FreeBSD: head/sys/netinet/sctp.h 366750 2020-10-16 10:44:48Z tuexen $");
 
 #ifndef _NETINET_SCTP_H_
 #define _NETINET_SCTP_H_
@@ -414,7 +414,7 @@ struct sctp_error_unresolv_addr {
 
 struct sctp_error_unrecognized_chunk {
 	struct sctp_error_cause cause;	/* code=SCTP_CAUSE_UNRECOG_CHUNK */
-	struct sctp_chunkhdr ch;	/* header from chunk in error */
+	struct sctp_chunkhdr ch;/* header from chunk in error */
 }                             SCTP_PACKED;
 
 struct sctp_error_no_user_data {

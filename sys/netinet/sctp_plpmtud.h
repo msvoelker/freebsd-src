@@ -33,30 +33,37 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: head/sys/netinet/sctp_input.h 365071 2020-09-01 21:19:14Z mjg $");
+__FBSDID("$FreeBSD$");
 
-#ifndef _NETINET_SCTP_INPUT_H_
-#define _NETINET_SCTP_INPUT_H_
+#ifndef _NETINET_SCTP_PLPMTUD_H_
+#define _NETINET_SCTP_PLPMTUD_H_
 
 #if defined(_KERNEL) || defined(__Userspace__)
-void
-sctp_common_input_processing(struct mbuf **, int, int, int,
-    struct sockaddr *, struct sockaddr *,
-    struct sctphdr *, struct sctp_chunkhdr *,
-    uint8_t,
-    uint8_t,
-    uint8_t, uint32_t, uint16_t,
-    uint32_t, uint16_t);
 
-struct sctp_stream_reset_request *
-sctp_find_stream_reset(struct sctp_tcb *stcb, uint32_t seq,
-    struct sctp_tmit_chunk **bchk);
+#define SCTP_PLPMTUD_STATE_DISABLED 0
+#define SCTP_PLPMTUD_STATE_BASE 1
+#define SCTP_PLPMTUD_STATE_ERROR 2
+#define SCTP_PLPMTUD_STATE_SEARCH 3
+#define SCTP_PLPMTUD_STATE_SEARCHCOMPLETE 4
 
-void
-sctp_reset_in_stream(struct sctp_tcb *stcb, uint32_t number_entries,
-    uint16_t *list);
+#define SCTP_PLPMTUD_STEPSIZE 4
+#define SCTP_PLPMTUD_BASE_IPV4 1200
+#define SCTP_PLPMTUD_BASE_IPV6 1280
+#define SCTP_PLPMTUD_MAX_IP_SIZE 65535
+#define SCTP_PLPMTUD_ALGORITHM_UP 1
+#define SCTP_PLPMTUD_ALGORITHM_OPTBINARY 2
 
-int sctp_is_there_unsent_data(struct sctp_tcb *stcb, int so_locked);
+/*
+ * Function prototypes
+ */
+void sctp_plpmtud_init(struct sctp_tcb *, struct sctp_nets *);
+void sctp_plpmtud_start(struct sctp_tcb *, struct sctp_nets *);
+void sctp_plpmtud_delayed_start(struct sctp_tcb *, struct sctp_nets *);
+void sctp_plpmtud_on_probe_acked(struct sctp_tcb *, struct sctp_nets *, uint32_t);
+void sctp_plpmtud_on_probe_timeout(struct sctp_tcb *, struct sctp_nets *);
+void sctp_plpmtud_on_ptb_received(struct sctp_tcb *, struct sctp_nets *, uint32_t);
+void sctp_plpmtud_on_pmtu_invalid(struct sctp_tcb *, struct sctp_nets *, uint32_t);
+void sctp_plpmtud_end(struct sctp_tcb *stcb, struct sctp_nets *net);
 
-#endif
+#endif				/* _KERNEL */
 #endif

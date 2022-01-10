@@ -33,7 +33,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
+__FBSDID("$FreeBSD: head/sys/netinet/sctp_timer.h 365071 2020-09-01 21:19:14Z mjg $");
 
 #ifndef _NETINET_SCTP_TIMER_H_
 #define _NETINET_SCTP_TIMER_H_
@@ -43,7 +43,8 @@ __FBSDID("$FreeBSD$");
 #define SCTP_RTT_SHIFT 3
 #define SCTP_RTT_VAR_SHIFT 2
 
-struct sctp_nets *sctp_find_alternate_net(struct sctp_tcb *, struct sctp_nets *, int);
+struct sctp_nets *
+          sctp_find_alternate_net(struct sctp_tcb *, struct sctp_nets *, int);
 
 int
 sctp_t3rxt_timer(struct sctp_inpcb *, struct sctp_tcb *,
@@ -63,10 +64,6 @@ sctp_heartbeat_timer(struct sctp_inpcb *, struct sctp_tcb *,
 
 int
 sctp_cookie_timer(struct sctp_inpcb *, struct sctp_tcb *,
-    struct sctp_nets *);
-
-void
-sctp_pathmtu_timer(struct sctp_inpcb *, struct sctp_tcb *,
     struct sctp_nets *);
 
 int

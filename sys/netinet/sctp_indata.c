@@ -89,7 +89,6 @@ sctp_calc_rwnd(struct sctp_tcb *stcb, struct sctp_association *asoc)
 	if (stcb->sctp_socket == NULL) {
 		return (calc);
 	}
-
 	KASSERT(asoc->cnt_on_reasm_queue > 0 || asoc->size_on_reasm_queue == 0,
 	    ("size_on_reasm_queue is %u", asoc->size_on_reasm_queue));
 	KASSERT(asoc->cnt_on_all_streams > 0 || asoc->size_on_all_streams == 0,
@@ -115,7 +114,6 @@ sctp_calc_rwnd(struct sctp_tcb *stcb, struct sctp_association *asoc)
 		/* out of space */
 		return (calc);
 	}
-
 	/* what is the overhead of all these rwnd's */
 	calc = sctp_sbspace_sub(calc, stcb->asoc.my_rwnd_control_len);
 	/*
@@ -187,7 +185,6 @@ sctp_build_ctl_nchunk(struct sctp_inpcb *inp, struct sctp_sndrcvinfo *sinfo)
 		/* user does not want any ancillary data */
 		return (NULL);
 	}
-
 	len = 0;
 	if (sctp_is_feature_on(inp, SCTP_PCB_FLAGS_RECVRCVINFO)) {
 		len += CMSG_SPACE(sizeof(struct sctp_rcvinfo));
@@ -492,13 +489,13 @@ sctp_queue_data_to_stream(struct sctp_tcb *stcb,
 	 * has wrapped but not in the stream. Is this worth worrying about
 	 * or should we just change our queue sort at the bottom to be by
 	 * TSN.
-	 *
-	 * Could it also be legal for a peer to send ssn 1 with TSN 2 and
-	 * ssn 2 with TSN 1? If the peer is doing some sort of funky TSN/SSN
+	 * 
+	 * Could it also be legal for a peer to send ssn 1 with TSN 2 and ssn 2
+	 * with TSN 1? If the peer is doing some sort of funky TSN/SSN
 	 * assignment this could happen... and I don't see how this would be
 	 * a violation. So for now I am undecided an will leave the sort by
 	 * SSN alone. Maybe a hybred approach is the answer
-	 *
+	 * 
 	 */
 	struct sctp_queued_to_read *at;
 	int queue_needed;
@@ -961,10 +958,10 @@ sctp_inject_old_unordered_data(struct sctp_tcb *stcb,
 				 * started the pd-api on the higher TSN
 				 * (since the equals part is a TSN failure
 				 * it must be that).
-				 *
-				 * We are completly hosed in that case since
-				 * I have no way to recover. This really
-				 * will only happen if we can get more TSN's
+				 * 
+				 * We are completly hosed in that case since I
+				 * have no way to recover. This really will
+				 * only happen if we can get more TSN's
 				 * higher before the pd-api-point.
 				 */
 				sctp_abort_in_reasm(stcb, control, chk,
@@ -2148,7 +2145,6 @@ sctp_process_a_data_chunk(struct sctp_tcb *stcb, struct sctp_association *asoc,
 		control = NULL;
 		goto finish_express_del;
 	}
-
 	/* Now will we need a chunk too? */
 	if ((chk_flags & SCTP_DATA_NOT_FRAG) != SCTP_DATA_NOT_FRAG) {
 		sctp_alloc_a_chunk(stcb, chk);
@@ -2199,7 +2195,7 @@ sctp_process_a_data_chunk(struct sctp_tcb *stcb, struct sctp_association *asoc,
 		 * if it is not being reset.. that way we would not create a
 		 * HOLB when amongst streams being reset and those not being
 		 * reset.
-		 *
+		 * 
 		 */
 		if (((liste = TAILQ_FIRST(&asoc->resetHead)) != NULL) &&
 		    SCTP_TSN_GT(tsn, liste->tsn)) {
@@ -2397,10 +2393,10 @@ sctp_slide_mapping_arrays(struct sctp_tcb *stcb)
 	/*
 	 * Now we also need to check the mapping array in a couple of ways.
 	 * 1) Did we move the cum-ack point?
-	 *
-	 * When you first glance at this you might think that all entries
-	 * that make up the position of the cum-ack would be in the
-	 * nr-mapping array only.. i.e. things up to the cum-ack are always
+	 * 
+	 * When you first glance at this you might think that all entries that
+	 * make up the position of the cum-ack would be in the nr-mapping
+	 * array only.. i.e. things up to the cum-ack are always
 	 * deliverable. Thats true with one exception, when its a fragmented
 	 * message we may not deliver the data until some threshold (or all
 	 * of it) is in place. So we must OR the nr_mapping_array and
@@ -2459,8 +2455,10 @@ sctp_slide_mapping_arrays(struct sctp_tcb *stcb)
 		/* The complete array was completed by a single FR */
 		/* highest becomes the cum-ack */
 		int clr;
+
 #ifdef INVARIANTS
 		unsigned int i;
+
 #endif
 
 		/* clear the array */
@@ -2828,7 +2826,7 @@ sctp_process_data(struct mbuf **mm, int iphlen, int *offset, int length,
 					 * Now, what do we do with KNOWN
 					 * chunks that are NOT in the right
 					 * place?
-					 *
+					 * 
 					 * For now, I do nothing but ignore
 					 * them. We may later want to add
 					 * sysctl stuff to switch out and do
@@ -3596,7 +3594,6 @@ sctp_strike_gap_ack_chunks(struct sctp_tcb *stcb, struct sctp_association *asoc,
 					    tp1);
 				}
 			}
-
 			if (SCTP_BASE_SYSCTL(sctp_logging_level) & SCTP_LOG_RWND_ENABLE) {
 				sctp_log_rwnd(SCTP_INCREASE_PEER_RWND,
 				    asoc->peers_rwnd, tp1->send_size, SCTP_BASE_SYSCTL(sctp_peer_chunk_oh));
@@ -3678,7 +3675,7 @@ sctp_strike_gap_ack_chunks(struct sctp_tcb *stcb, struct sctp_association *asoc,
 					tp1->whoTo->find_pseudo_cumack = 1;
 					tp1->whoTo->find_rtx_pseudo_cumack = 1;
 				}
-			} else {	/* CMT is OFF */
+			} else {/* CMT is OFF */
 #ifdef SCTP_FR_TO_ALTERNATE
 				/* Can we find an alternate? */
 				alt = sctp_find_alternate_net(stcb, tp1->whoTo, 0);
@@ -3840,8 +3837,10 @@ sctp_fs_audit(struct sctp_association *asoc)
 	struct sctp_tmit_chunk *chk;
 	int inflight = 0, resend = 0, inbetween = 0, acked = 0, above = 0;
 	int ret;
+
 #ifndef INVARIANTS
 	int entry_flight, entry_cnt;
+
 #endif
 
 	ret = 0;
@@ -3964,7 +3963,6 @@ sctp_express_handle_sack(struct sctp_tcb *stcb, uint32_t cumack,
 		}
 		return;
 	}
-
 	/* First setup for CC stuff */
 	TAILQ_FOREACH(net, &asoc->nets, sctp_next) {
 		if (SCTP_TSN_GT(cumack, net->cwr_window_tsn)) {
@@ -4205,7 +4203,6 @@ sctp_express_handle_sack(struct sctp_tcb *stcb, uint32_t cumack,
 		asoc->total_flight = 0;
 		asoc->total_flight_count = 0;
 	}
-
 	/* RWND update */
 	asoc->peers_rwnd = sctp_sbspace_sub(rwnd,
 	    (uint32_t)(asoc->total_flight + (asoc->total_flight_count * SCTP_BASE_SYSCTL(sctp_peer_chunk_oh))));
@@ -4461,7 +4458,6 @@ sctp_handle_sack(struct mbuf *m, int offset_seg, int offset_dup,
 		sctp_misc_ints(SCTP_SACK_LOG_NORMAL, cum_ack,
 		    rwnd, stcb->asoc.last_acked_seq, stcb->asoc.peers_rwnd);
 	}
-
 	old_rwnd = stcb->asoc.peers_rwnd;
 	if (SCTP_BASE_SYSCTL(sctp_logging_level) & SCTP_THRESHOLD_LOGGING) {
 		sctp_misc_ints(SCTP_THRESHOLD_CLEAR,
@@ -4534,7 +4530,6 @@ hopeless_peer:
 		/* acking something behind */
 		return;
 	}
-
 	/* update the Rwnd of the peer */
 	if (TAILQ_EMPTY(&asoc->sent_queue) &&
 	    TAILQ_EMPTY(&asoc->send_queue) &&
@@ -4588,7 +4583,6 @@ hopeless_peer:
 		if (stcb->asoc.cc_functions.sctp_cwnd_prepare_net_for_sack) {
 			(*stcb->asoc.cc_functions.sctp_cwnd_prepare_net_for_sack) (stcb, net);
 		}
-
 		/*
 		 * CMT: SFR algo (and HTNA) - this_sack_highest_newack has
 		 * to be greater than the cumack. Also reset saw_newack to 0
@@ -4820,7 +4814,6 @@ hopeless_peer:
 #endif
 		asoc->total_flight = 0;
 	}
-
 	/* sa_ignore NO_NULL_CHK */
 	if ((wake_him) && (stcb->sctp_socket)) {
 		SOCKBUF_LOCK(&stcb->sctp_socket->so_snd);
@@ -4842,7 +4835,7 @@ hopeless_peer:
 	}
 	/*
 	 * Check for revoked fragments:
-	 *
+	 * 
 	 * if Previous sack - Had no frags then we can't have any revoked if
 	 * Previous sack - Had frag's then - If we now have frags aka
 	 * num_seg > 0 call sctp_check_for_revoked() to tell if peer revoked
@@ -4905,7 +4898,6 @@ hopeless_peer:
 					sctp_ulp_notify(SCTP_NOTIFY_INTERFACE_UP, stcb,
 					    0, (void *)net, SCTP_SO_NOT_LOCKED);
 				}
-
 				if (net == stcb->asoc.primary_destination) {
 					if (stcb->asoc.alternate) {
 						/*
@@ -4916,7 +4908,6 @@ hopeless_peer:
 						stcb->asoc.alternate = NULL;
 					}
 				}
-
 				if (net->dest_state & SCTP_ADDR_PF) {
 					net->dest_state &= ~SCTP_ADDR_PF;
 					sctp_timer_stop(SCTP_TIMER_TYPE_HEARTBEAT,
@@ -4939,7 +4930,6 @@ hopeless_peer:
 		}
 		asoc->cc_functions.sctp_cwnd_update_after_sack(stcb, asoc, accum_moved, reneged_all, will_exit_fast_recovery);
 	}
-
 	if (TAILQ_EMPTY(&asoc->sent_queue)) {
 		/* nothing left in-flight */
 		TAILQ_FOREACH(net, &asoc->nets, sctp_next) {
@@ -4953,7 +4943,6 @@ hopeless_peer:
 		asoc->total_flight = 0;
 		asoc->total_flight_count = 0;
 	}
-
 	/**********************************/
 	/* Now what about shutdown issues */
 	/**********************************/
@@ -5086,7 +5075,6 @@ hopeless_peer:
 	if (asoc->peers_rwnd > old_rwnd) {
 		win_probe_recovery = 1;
 	}
-
 	/*
 	 * Now we must setup so we have a timer up for anyone with
 	 * outstanding data.
@@ -5481,11 +5469,11 @@ sctp_handle_forward_tsn(struct sctp_tcb *stcb,
 	/*
 	 * here we will perform all the data receiver side steps for
 	 * processing FwdTSN, as required in by pr-sctp draft:
-	 *
+	 * 
 	 * Assume we get FwdTSN(x):
-	 *
-	 * 1) update local cumTSN to x 2) try to further advance cumTSN to x
-	 * + others we have 3) examine and update re-ordering queue on
+	 * 
+	 * 1) update local cumTSN to x 2) try to further advance cumTSN to x +
+	 * others we have 3) examine and update re-ordering queue on
 	 * pr-in-streams 4) clean up re-assembly queue 5) Send a sack to
 	 * report where we are.
 	 */

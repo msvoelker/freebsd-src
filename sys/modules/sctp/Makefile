@@ -16,6 +16,7 @@ SRCS=	sctp_asconf.c \
 	sctp_output.c \
 	sctp_pcb.c \
 	sctp_peeloff.c \
+	sctp_plpmtud.c \
 	sctp_ss_functions.c \
 	sctp_syscalls.c \
 	sctp_sysctl.c \

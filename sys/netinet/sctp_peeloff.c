@@ -102,7 +102,6 @@ sctp_do_peeloff(struct socket *head, struct socket *so, sctp_assoc_t assoc_id)
 		SCTP_LTRACE_ERR_RET(inp, NULL, NULL, SCTP_FROM_SCTP_PEELOFF, ENOTCONN);
 		return (ENOTCONN);
 	}
-
 	state = SCTP_GET_STATE(stcb);
 	if ((state == SCTP_STATE_EMPTY) ||
 	    (state == SCTP_STATE_INUSE)) {
@@ -110,7 +109,6 @@ sctp_do_peeloff(struct socket *head, struct socket *so, sctp_assoc_t assoc_id)
 		SCTP_LTRACE_ERR_RET(inp, NULL, NULL, SCTP_FROM_SCTP_PEELOFF, ENOTCONN);
 		return (ENOTCONN);
 	}
-
 	n_inp = (struct sctp_inpcb *)so->so_pcb;
 	n_inp->sctp_flags = (SCTP_PCB_FLAGS_UDPTYPE |
 	    SCTP_PCB_FLAGS_CONNECTED |
@@ -128,6 +126,14 @@ sctp_do_peeloff(struct socket *head, struct socket *so, sctp_assoc_t assoc_id)
 	n_inp->reconfig_supported = inp->reconfig_supported;
 	n_inp->nrsack_supported = inp->nrsack_supported;
 	n_inp->pktdrop_supported = inp->pktdrop_supported;
+	n_inp->plpmtud_enabled = inp->plpmtud_enabled;
+	n_inp->plpmtud_ipv4_min_mtu = inp->plpmtud_ipv4_min_mtu;
+	n_inp->plpmtud_ipv6_min_mtu = inp->plpmtud_ipv6_min_mtu;
+	n_inp->plpmtud_search_algorithm = inp->plpmtud_search_algorithm;
+	n_inp->plpmtud_use_ptb = inp->plpmtud_use_ptb;
+	n_inp->plpmtud_max_probes = inp->plpmtud_max_probes;
+	n_inp->plpmtud_min_probe_rtx_time = inp->plpmtud_min_probe_rtx_time;
+	n_inp->plpmtud_raise_time = inp->plpmtud_raise_time;
 	n_inp->partial_delivery_point = inp->partial_delivery_point;
 	n_inp->sctp_context = inp->sctp_context;
 	n_inp->max_cwnd = inp->max_cwnd;
