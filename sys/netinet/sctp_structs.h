@@ -400,16 +400,13 @@ struct sctp_nets {
 	uint32_t plpmtud_timer_value;
 	uint32_t plpmtud_min_pmtu;
 	uint32_t plpmtud_max_pmtu;
-	uint32_t plpmtud_initial_min_pmtu;
-	uint32_t plpmtud_initial_max_pmtu;
 	uint32_t plpmtud_base_pmtu;
-	uint32_t plpmtud_overhead;
 	uint32_t plpmtud_probed_size;
 	uint16_t plpmtud_probe_count;	/* used in BASE and SEARCH_COMPLETE */
 	struct sctp_plpmtud_probe_head plpmtud_probes;	/* used in SEARCH */
 	uint8_t plpmtud_last_probe_acked;	/* used in SEARCH */
 	/* used for candidate sequence in SEARCH */
-	uint32_t (*plpmtud_get_next_candidate) (struct sctp_tcb *, struct sctp_nets *);
+	uint32_t (*plpmtud_get_next_candidate) (struct sctp_tcb *, struct sctp_nets *, uint8_t);
 	uint32_t plpmtud_smallest_expired;
 	uint32_t plpmtud_smallest_failed;
 };
