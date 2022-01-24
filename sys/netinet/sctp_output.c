@@ -52,6 +52,7 @@ __FBSDID("$FreeBSD$");
 #include <netinet/sctp_bsd_addr.h>
 #include <netinet/sctp_input.h>
 #include <netinet/sctp_crc32.h>
+#include <netinet/sctp_plpmtud.h>
 #include <netinet/sctp_kdtrace.h>
 #if defined(INET) || defined(INET6)
 #include <netinet/udp.h>
@@ -4251,19 +4252,16 @@ sctp_lowlevel_chunk_output(struct sctp_inpcb *inp,
 				RO_NHFREE(ro);
 			} else {
 				if ((ro->ro_nh != NULL) && (net->ro._s_addr) &&
-				    ((net->dest_state & SCTP_ADDR_NO_PMTUD) == 0)) {
+				    (net->plpmtud_enabled)) {
 					uint32_t mtu;
 
-					mtu = SCTP_GATHER_MTU_FROM_ROUTE(net->ro._s_addr, &net->ro._l_addr.sa, ro->ro_nh);
+					mtu = sctp_route_get_mtu(net);
 					if (mtu > 0) {
 						if (net->port) {
 							mtu -= sizeof(struct udphdr);
 						}
 						if (mtu < net->mtu) {
-							net->mtu = mtu;
-							if ((stcb != NULL) && (stcb->asoc.smallest_mtu > mtu)) {
-								sctp_pathmtu_adjustment(stcb, mtu, true);
-							}
+							sctp_plpmtud_on_pmtu_invalid(stcb, net, 0);
 						}
 					}
 				} else if (ro->ro_nh == NULL) {
@@ -4592,19 +4590,16 @@ sctp_lowlevel_chunk_output(struct sctp_inpcb *inp,
 					net->src_addr_selected = 0;
 				}
 				if ((ro->ro_nh != NULL) && (net->ro._s_addr) &&
-				    ((net->dest_state & SCTP_ADDR_NO_PMTUD) == 0)) {
+				    (net->plpmtud_enabled)) {
 					uint32_t mtu;
 
-					mtu = SCTP_GATHER_MTU_FROM_ROUTE(net->ro._s_addr, &net->ro._l_addr.sa, ro->ro_nh);
+					mtu = sctp_route_get_mtu(net);
 					if (mtu > 0) {
 						if (net->port) {
 							mtu -= sizeof(struct udphdr);
 						}
 						if (mtu < net->mtu) {
-							net->mtu = mtu;
-							if ((stcb != NULL) && (stcb->asoc.smallest_mtu > mtu)) {
-								sctp_pathmtu_adjustment(stcb, mtu, false);
-							}
+							sctp_plpmtud_on_pmtu_invalid(stcb, net, 0);
 						}
 					}
 				} else if (ifp != NULL) {
