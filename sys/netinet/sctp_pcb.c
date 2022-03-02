@@ -3917,7 +3917,6 @@ sctp_add_remote_addr(struct sctp_tcb *stcb, struct sockaddr *newaddr,
 	} else {
 		net->dest_state &= ~SCTP_ADDR_NOHB;
 	}
-	net->dest_state |= SCTP_ADDR_NO_PMTUD;
 	net->plpmtud_enabled = stcb->asoc.plpmtud_enabled;
 	net->plpmtud_use_ptb = stcb->asoc.plpmtud_use_ptb;
 	net->plpmtud_max_probes = stcb->asoc.plpmtud_max_probes;
@@ -4043,9 +4042,6 @@ sctp_add_remote_addr(struct sctp_tcb *stcb, struct sockaddr *newaddr,
 	}
 	if (stcb->asoc.smallest_mtu > net->mtu) {
 		sctp_pathmtu_adjustment(stcb, net->mtu, true);
-	}
-	if (net->plpmtud_enabled) {
-		sctp_plpmtud_init(stcb, net);
 	}
 #ifdef INET6
 	if (newaddr->sa_family == AF_INET6) {
